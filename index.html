@@ -290,7 +290,6 @@
     width: 100%;
     height: 100%;
     border: none;
-    display: none;
   }
 
   /* HOST controls */
@@ -534,8 +533,8 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
-  #yt-container { position: relative; }
-  #yt-container iframe { width: 100% !important; height: 100% !important; border: none; }
+  #yt-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  #yt-container iframe { width: 100% !important; height: 100% !important; border: none; display: block; }
 </style>
 </head>
 <body>
@@ -862,14 +861,21 @@ function loadVideoLocal(url) {
     $('yt-container').style.display = 'block';
     // Crear YT.Player con la API oficial
     const createPlayer = () => {
+      const wrap = document.getElementById('video-wrap');
+      const w = wrap.offsetWidth || 640;
+      const h = wrap.offsetHeight || 360;
       ytPlayer = new YT.Player('yt-frame', {
-        width: '100%',
-        height: '100%',
+        width: w,
+        height: h,
         videoId: id,
         playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
         events: {
           onReady: () => {
             addSystemMsg('Video de YouTube listo.');
+            const iframe = ytPlayer.getIframe();
+            if (iframe) {
+              iframe.style.cssText = 'width:100% !important; height:100% !important; display:block !important; border:none; position:absolute; top:0; left:0;';
+            }
           },
           onStateChange: (e) => {
             if (!isHost || suppressSync) return;
