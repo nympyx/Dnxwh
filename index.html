@@ -476,36 +476,40 @@
 
   /* ── RESPONSIVE ── */
   @media (max-width: 640px) {
+    #room {
+      height: auto;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+    .room-body {
+      flex-direction: column;
+      overflow: visible;
+      flex: none;
+    }
+    .video-panel {
+      height: auto;
+      flex: none;
+    }
+    .video-wrap {
+      height: 56vw;
+      min-height: 200px;
+      flex: none;
+    }
     .chat-panel {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
       width: 100%;
-      height: 45vh;
+      height: 420px;
       border-left: none;
       border-top: 2px solid var(--border);
-      z-index: 10;
-      transform: translateY(100%);
-      transition: transform 0.3s;
+      flex: none;
+      position: static;
+      transform: none !important;
     }
-    .chat-panel.open { transform: translateY(0); }
-    .room-body { flex-direction: column; }
-    .video-panel { height: 55vh; }
-    #chat-toggle { display: flex !important; }
+    #messages {
+      height: 280px;
+    }
   }
 
-  #chat-toggle {
-    display: none;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    color: var(--text);
-    padding: 4px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
+  #chat-toggle { display: none !important; }
 
   .toast {
     position: fixed;
@@ -575,7 +579,6 @@
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span id="conn-indicator"><span class="conn-dot" id="conn-dot"></span><span id="conn-text" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted)">esperando...</span></span>
       <span class="room-id-badge" id="room-id-display" onclick="copyRoomId()" title="Click para copiar">📋 ---</span>
-      <button id="chat-toggle" onclick="toggleChat()">💬 Chat</button>
     </div>
   </div>
 
@@ -818,7 +821,7 @@ function loadVideoLocal(url) {
     if (!id) return toast('No se pudo leer el ID de YouTube');
     $('yt-frame').src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
     $('yt-frame').style.display = 'block';
-    addSystemMsg('Video de YouTube cargado. (El control de sincronización es manual para YT)');
+    addSystemMsg('Video de YouTube cargado. ¡A disfrutar!');
   } else if (type === 'drive') {
     const id = getDriveId(url);
     if (!id) return toast('No se pudo leer el ID de Drive');
