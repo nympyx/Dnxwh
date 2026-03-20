@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -591,7 +592,7 @@
           <div class="placeholder-text">Esperando que el host cargue un video…</div>
         </div>
         <video id="video-el" controls></video>
-        <iframe id="yt-frame" allowfullscreen allow="autoplay"></iframe>
+        <div id="yt-frame"></div>
       </div>
 
       <!-- Host: cargar URL -->
@@ -632,6 +633,13 @@ let videoType = null; // 'native' | 'youtube' | 'drive'
 let isSeeking = false;
 let suppressSync = false;
 let chatOpen = false;
+let ytPlayer = null;
+let ytReady = false;
+
+// YouTube IFrame API callback
+function onYouTubeIframeAPIReady() {
+  ytReady = true;
+}
 
 const $ = id => document.getElementById(id);
 
@@ -769,6 +777,29 @@ function onData(data) {
         setTimeout(() => suppressSync = false, 300);
       }
       break;
+    case 'yt-play':
+      if (!isHost && ytPlayer) {
+        suppressSync = true;
+        ytPlayer.seekTo(data.time, true);
+        ytPlayer.playVideo();
+        setTimeout(() => suppressSync = false, 500);
+      }
+      break;
+    case 'yt-pause':
+      if (!isHost && ytPlayer) {
+        suppressSync = true;
+        ytPlayer.seekTo(data.time, true);
+        ytPlayer.pauseVideo();
+        setTimeout(() => suppressSync = false, 500);
+      }
+      break;
+    case 'yt-seek':
+      if (!isHost && ytPlayer) {
+        suppressSync = true;
+        ytPlayer.seekTo(data.time, true);
+        setTimeout(() => suppressSync = false, 300);
+      }
+      break;
   }
 }
 
@@ -809,6 +840,11 @@ function hideAllPlayers() {
   $('video-el').style.display = 'none';
   $('yt-frame').style.display = 'none';
   $('sync-bar').classList.remove('visible');
+  // Destruir player de YT si existe
+  if (ytPlayer) {
+    try { ytPlayer.destroy(); } catch(e) {}
+    ytPlayer = null;
+  }
 }
 
 function loadVideoLocal(url) {
@@ -819,9 +855,33 @@ function loadVideoLocal(url) {
   if (type === 'youtube') {
     const id = getYTId(url);
     if (!id) return toast('No se pudo leer el ID de YouTube');
-    $('yt-frame').src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
     $('yt-frame').style.display = 'block';
-    addSystemMsg('Video de YouTube cargado. ¡A disfrutar!');
+    // Crear YT.Player con la API oficial
+    const createPlayer = () => {
+      ytPlayer = new YT.Player('yt-frame', {
+        videoId: id,
+        playerVars: { autoplay: 0, controls: isHost ? 1 : 0, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => {
+            addSystemMsg('Video de YouTube listo.');
+          },
+          onStateChange: (e) => {
+            if (!isHost || suppressSync) return;
+            if (e.data === YT.PlayerState.PLAYING) {
+              send({ type: 'yt-play', time: ytPlayer.getCurrentTime() });
+            } else if (e.data === YT.PlayerState.PAUSED) {
+              send({ type: 'yt-pause', time: ytPlayer.getCurrentTime() });
+            }
+          }
+        }
+      });
+    };
+    if (ytReady) {
+      createPlayer();
+    } else {
+      // Esperar a que la API esté lista
+      const wait = setInterval(() => { if (ytReady) { clearInterval(wait); createPlayer(); } }, 100);
+    }
   } else if (type === 'drive') {
     const id = getDriveId(url);
     if (!id) return toast('No se pudo leer el ID de Drive');
