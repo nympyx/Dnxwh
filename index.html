@@ -534,6 +534,8 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
+  #yt-container { position: relative; }
+  #yt-container iframe { width: 100% !important; height: 100% !important; border: none; }
 </style>
 </head>
 <body>
@@ -592,7 +594,7 @@
           <div class="placeholder-text">Esperando que el host cargue un video…</div>
         </div>
         <video id="video-el" controls></video>
-        <div id="yt-frame"></div>
+        <div id="yt-container" style="display:none;width:100%;height:100%;"><div id="yt-frame"></div></div>
       </div>
 
       <!-- Host: cargar URL -->
@@ -838,12 +840,14 @@ function getDriveId(url) {
 function hideAllPlayers() {
   $('video-placeholder').style.display = 'none';
   $('video-el').style.display = 'none';
-  $('yt-frame').style.display = 'none';
+  $('yt-container').style.display = 'none';
   $('sync-bar').classList.remove('visible');
   // Destruir player de YT si existe
   if (ytPlayer) {
     try { ytPlayer.destroy(); } catch(e) {}
     ytPlayer = null;
+    // Recrear el div interno para el próximo player
+    $('yt-container').innerHTML = '<div id="yt-frame"></div>';
   }
 }
 
@@ -855,12 +859,14 @@ function loadVideoLocal(url) {
   if (type === 'youtube') {
     const id = getYTId(url);
     if (!id) return toast('No se pudo leer el ID de YouTube');
-    $('yt-frame').style.display = 'block';
+    $('yt-container').style.display = 'block';
     // Crear YT.Player con la API oficial
     const createPlayer = () => {
       ytPlayer = new YT.Player('yt-frame', {
+        width: '100%',
+        height: '100%',
         videoId: id,
-        playerVars: { autoplay: 0, controls: isHost ? 1 : 0, rel: 0, modestbranding: 1 },
+        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
         events: {
           onReady: () => {
             addSystemMsg('Video de YouTube listo.');
@@ -886,6 +892,7 @@ function loadVideoLocal(url) {
     const id = getDriveId(url);
     if (!id) return toast('No se pudo leer el ID de Drive');
     $('yt-frame').src = `https://drive.google.com/file/d/${id}/preview?autoplay=1`;
+    $('yt-container').style.display = 'block';
     $('yt-frame').style.display = 'block';
     addSystemMsg('Video de Drive cargado.');
   } else {
