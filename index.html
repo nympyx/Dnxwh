@@ -286,12 +286,6 @@
     display: none;
   }
 
-  #yt-frame {
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
-
   /* HOST controls */
   .host-bar {
     background: var(--bg2);
@@ -533,8 +527,20 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
-  #yt-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  #yt-container iframe { width: 100% !important; height: 100% !important; border: none; display: block; }
+  #yt-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+  }
+  #yt-container iframe {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    display: block !important;
+  }
 </style>
 </head>
 <body>
@@ -593,7 +599,7 @@
           <div class="placeholder-text">Esperando que el host cargue un video…</div>
         </div>
         <video id="video-el" controls></video>
-        <div id="yt-container" style="display:none;width:100%;height:100%;"><div id="yt-frame"></div></div>
+        <div id="yt-container" style="display:none;"><div id="yt-player-div"></div></div>
       </div>
 
       <!-- Host: cargar URL -->
@@ -845,8 +851,7 @@ function hideAllPlayers() {
   if (ytPlayer) {
     try { ytPlayer.destroy(); } catch(e) {}
     ytPlayer = null;
-    // Recrear el div interno para el próximo player
-    $('yt-container').innerHTML = '<div id="yt-frame"></div>';
+    $('yt-container').innerHTML = '<div id="yt-player-div"></div>';
   }
 }
 
@@ -858,24 +863,19 @@ function loadVideoLocal(url) {
   if (type === 'youtube') {
     const id = getYTId(url);
     if (!id) return toast('No se pudo leer el ID de YouTube');
-    $('yt-container').style.display = 'block';
-    // Crear YT.Player con la API oficial
+
+    // Mostrar contenedor y preparar div interno limpio
+    const container = $('yt-container');
+    container.innerHTML = '<div id="yt-player-div"></div>';
+    container.style.display = 'block';
+
     const createPlayer = () => {
-      const wrap = document.getElementById('video-wrap');
-      const w = wrap.offsetWidth || 640;
-      const h = wrap.offsetHeight || 360;
-      ytPlayer = new YT.Player('yt-frame', {
-        width: w,
-        height: h,
+      ytPlayer = new YT.Player('yt-player-div', {
         videoId: id,
-        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
+        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
         events: {
           onReady: () => {
             addSystemMsg('Video de YouTube listo.');
-            const iframe = ytPlayer.getIframe();
-            if (iframe) {
-              iframe.style.cssText = 'width:100% !important; height:100% !important; display:block !important; border:none; position:absolute; top:0; left:0;';
-            }
           },
           onStateChange: (e) => {
             if (!isHost || suppressSync) return;
