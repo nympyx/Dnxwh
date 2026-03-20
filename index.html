@@ -636,16 +636,22 @@
 <script>
 // ─── STATE ───────────────────────────────────────────
 let peer, conn, isHost = false, myName = '', roomId = '';
-let videoType = null; // 'native' | 'youtube' | 'drive'
+let videoType = null;
 let isSeeking = false;
 let suppressSync = false;
 let chatOpen = false;
-let ytPlayer = null;
-let ytReady = false;
+let ytPlayer = null;       // instancia YT.Player
+let ytAPIReady = false;    // flag: API cargada
+let ytPendingId = null;    // video id pendiente si API no estaba lista
 
-// YouTube IFrame API callback
+// Callback global requerido por YouTube IFrame API
 function onYouTubeIframeAPIReady() {
-  ytReady = true;
+  ytAPIReady = true;
+  if (ytPendingId) {
+    const id = ytPendingId;
+    ytPendingId = null;
+    _createYTPlayer(id);
+  }
 }
 
 const $ = id => document.getElementById(id);
@@ -787,7 +793,7 @@ function onData(data) {
     case 'yt-play':
       if (!isHost && ytPlayer) {
         suppressSync = true;
-        ytPlayer.seekTo(data.time, true);
+        if (data.time > 0) ytPlayer.seekTo(data.time, true);
         ytPlayer.playVideo();
         setTimeout(() => suppressSync = false, 500);
       }
@@ -795,7 +801,7 @@ function onData(data) {
     case 'yt-pause':
       if (!isHost && ytPlayer) {
         suppressSync = true;
-        ytPlayer.seekTo(data.time, true);
+        if (data.time > 0) ytPlayer.seekTo(data.time, true);
         ytPlayer.pauseVideo();
         setTimeout(() => suppressSync = false, 500);
       }
@@ -851,8 +857,9 @@ function hideAllPlayers() {
   if (ytPlayer) {
     try { ytPlayer.destroy(); } catch(e) {}
     ytPlayer = null;
-    $('yt-container').innerHTML = '<div id="yt-player-div"></div>';
   }
+  ytPendingId = null;
+  $('yt-container').innerHTML = '<div id="yt-player-div"></div>';
 }
 
 function loadVideoLocal(url) {
@@ -864,36 +871,15 @@ function loadVideoLocal(url) {
     const id = getYTId(url);
     if (!id) return toast('No se pudo leer el ID de YouTube');
 
-    // Mostrar contenedor y preparar div interno limpio
-    const container = $('yt-container');
-    container.innerHTML = '<div id="yt-player-div"></div>';
-    container.style.display = 'block';
+    $('yt-container').style.display = 'block';
+    $('yt-container').innerHTML = '<div id="yt-player-div"></div>';
 
-    const createPlayer = () => {
-      ytPlayer = new YT.Player('yt-player-div', {
-        videoId: id,
-        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: () => {
-            addSystemMsg('Video de YouTube listo.');
-          },
-          onStateChange: (e) => {
-            if (!isHost || suppressSync) return;
-            if (e.data === YT.PlayerState.PLAYING) {
-              send({ type: 'yt-play', time: ytPlayer.getCurrentTime() });
-            } else if (e.data === YT.PlayerState.PAUSED) {
-              send({ type: 'yt-pause', time: ytPlayer.getCurrentTime() });
-            }
-          }
-        }
-      });
-    };
-    if (ytReady) {
-      createPlayer();
+    if (ytAPIReady) {
+      _createYTPlayer(id);
     } else {
-      // Esperar a que la API esté lista
-      const wait = setInterval(() => { if (ytReady) { clearInterval(wait); createPlayer(); } }, 100);
+      ytPendingId = id; // se creará cuando onYouTubeIframeAPIReady dispare
     }
+
   } else if (type === 'drive') {
     const id = getDriveId(url);
     if (!id) return toast('No se pudo leer el ID de Drive');
@@ -915,6 +901,35 @@ function loadVideoRemote(url) {
   if (videoType !== 'native') {
     addSystemMsg('El host cargó un video. ¡Dale play cuando quieras!');
   }
+}
+
+// ─── YOUTUBE PLAYER ──────────────────────────────────
+function _createYTPlayer(id) {
+  // Asegurarse que el div existe (puede haberse limpiado)
+  if (!document.getElementById('yt-player-div')) {
+    $('yt-container').innerHTML = '<div id="yt-player-div"></div>';
+  }
+  ytPlayer = new YT.Player('yt-player-div', {
+    videoId: id,
+    playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+    events: {
+      onReady: (e) => {
+        // Forzar iframe a 100% del contenedor
+        const iframe = e.target.getIframe();
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+        addSystemMsg('Video de YouTube listo.');
+      },
+      onStateChange: (e) => {
+        if (!isHost || suppressSync) return;
+        const t = ytPlayer.getCurrentTime();
+        if (e.data === YT.PlayerState.PLAYING) {
+          send({ type: 'yt-play', time: t });
+        } else if (e.data === YT.PlayerState.PAUSED) {
+          send({ type: 'yt-pause', time: t });
+        }
+      }
+    }
+  });
 }
 
 // ─── NATIVE VIDEO CONTROLS ────────────────────────────
